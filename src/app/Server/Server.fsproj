@@ -20,6 +20,9 @@
     <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="2.0.*" />
     <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="2.0.*" />
     <PackageReference Include="Giraffe" Version="3.0.*" />
+    <PackageReference Include="Suave" Version="2.5.3" />
+    <PackageReference Include="Suave.AspNetCore" Version="0.4.1" />
+    <PackageReference Include="Suave.DotLiquid" Version="2.5.3" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Auth\JsonWebToken.fs" />

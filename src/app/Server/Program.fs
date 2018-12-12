@@ -13,6 +13,9 @@ open Microsoft.Extensions.DependencyInjection
 open Giraffe
 open Giraffe.HttpStatusCodeHandlers.RequestErrors
 open FSharp.Control.Tasks
+open Suave
+open Suave.DotLiquid
+open DotLiquid
 
 // ---------------------------------
 // Handlers
@@ -76,6 +79,7 @@ let webApp (eventStore: IStore<UserId, RequestEvent>) =
         result
         
     choose [
+        //route "/" >=> GET >=> 
         subRoute "/api"
             (choose [
                 route "/users/login" >=> POST >=> Auth.Handlers.login

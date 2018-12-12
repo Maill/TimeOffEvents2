@@ -38,17 +38,35 @@ let overlapTests =
         UserId = 1
         RequestId = Guid.NewGuid()
         Start = { Date = DateTime(2018, 10, 1); HalfDay = AM }
+        End = { Date = DateTime(2018, 10, 2); HalfDay = AM }
+      }
+
+      let request2 = {
+        UserId = 1
+        RequestId = Guid.NewGuid()
+        Start = { Date = DateTime(2018, 10, 2); HalfDay = PM }
+        End = { Date = DateTime(2018, 10, 3); HalfDay = PM }
+      }
+
+      Expect.isFalse (Logic.overlapsWith request1 request2) "The requests don't overlap"
+    }
+
+    test "Requests overlap" {
+      let request1 = {
+        UserId = 1
+        RequestId = Guid.NewGuid()
+        Start = { Date = DateTime(2018, 10, 1); HalfDay = AM }
         End = { Date = DateTime(2018, 10, 1); HalfDay = PM }
       }
 
       let request2 = {
         UserId = 1
         RequestId = Guid.NewGuid()
-        Start = { Date = DateTime(2018, 10, 2); HalfDay = AM }
+        Start = { Date = DateTime(2018, 10, 1); HalfDay = AM }
         End = { Date = DateTime(2018, 10, 2); HalfDay = PM }
       }
 
-      Expect.isFalse (Logic.overlapsWith request1 request2) "The requests don't overlap"
+      Expect.isTrue (Logic.overlapsWith request1 request2) "The requests do overlap"
     }
   ]
 

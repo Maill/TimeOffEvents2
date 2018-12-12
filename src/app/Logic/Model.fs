@@ -52,14 +52,15 @@ module Logic =
         userRequests.Add (event.Request.RequestId, newRequestState)
 
     let isContainedIn baseRequest comparedRequest = 
-        comparedRequest.End < baseRequest.Start || baseRequest.End < comparedRequest.Start
+        (baseRequest.Start < comparedRequest.End && comparedRequest.Start < baseRequest.Start)
+        || (comparedRequest.Start < baseRequest.End && baseRequest.Start < comparedRequest.Start)
 
     let overlapsWith request1 request2 =
         request1.Start = request2.Start 
         || request1.End = request2.End
         || request1.End = request2.Start
         || request1.Start = request2.End
-        || request1 |> isContainedIn request2 
+        || request1 |> isContainedIn request2
         || request2 |> isContainedIn request1
     
     let overlapsWithAnyRequest (otherRequests: TimeOffRequest seq) request =
