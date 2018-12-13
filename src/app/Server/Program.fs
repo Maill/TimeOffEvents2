@@ -13,9 +13,6 @@ open Microsoft.Extensions.DependencyInjection
 open Giraffe
 open Giraffe.HttpStatusCodeHandlers.RequestErrors
 open FSharp.Control.Tasks
-open Suave
-open Suave.DotLiquid
-open DotLiquid
 
 // ---------------------------------
 // Handlers
@@ -79,10 +76,11 @@ let webApp (eventStore: IStore<UserId, RequestEvent>) =
         result
         
     choose [
-        //route "/" >=> GET >=> 
+        route "/" >=> GET >=> htmlView Views.indexView
+        route "/" >=> POST >=> Auth.Handlers.login
+        route "/home" >=> Auth.Handlers.requiresJwtTokenForAPI (fun user -> GET >=> htmlView Views.homeView)
         subRoute "/api"
             (choose [
-                route "/users/login" >=> POST >=> Auth.Handlers.login
                 subRoute "/timeoff"
                     (Auth.Handlers.requiresJwtTokenForAPI (fun user ->
                         choose [
@@ -91,7 +89,7 @@ let webApp (eventStore: IStore<UserId, RequestEvent>) =
                         ]
                     ))
             ])
-        setStatusCode 404 >=> text "Not Found" ]
+        setStatusCode 404 >=> htmlView Views.lostView ]
 
 // ---------------------------------
 // Error handler
@@ -119,7 +117,7 @@ let configureApp (eventStore: IStore<UserId, RequestEvent>) (app: IApplicationBu
     | false -> app.UseGiraffeErrorHandler errorHandler)
         .UseCors(configureCors)
         .UseStaticFiles()
-        .UseGiraffe(webApp)
+        .UseGiraffe webApp
 
 let configureServices (services: IServiceCollection) =
     services.AddCors() |> ignore

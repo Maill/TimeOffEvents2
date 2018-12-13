@@ -1,0 +1,30 @@
+/****************************************************************************************************/
+/* INFORMATION BLOCK */
+/****************************************************************************************************/
+
+.informationBackground{ position:fixed; top:0; right:0; bottom:0; left:0; z-index:390; background-color:rgba(0,0,0,0.60); }
+
+.informationContainer{ position:fixed; width:400px; top:40px; right:40px; margin-bottom:40px; z-index:400; }
+
+
+.informationSuccessType, .informationInfoType, .informationErrorType{ box-sizing:border-box; font-size:0.9em; color:#FFFFFF; padding:20px 10px 20px 10px; width:100%; margin:0 0 20px 0; border-radius:4px; box-shadow:0 2px 2px 0 rgba(0,0,0,0.16), 0 0 0 1px rgba(0,0,0,0.08); display:flex; flex-direction:row; align-items:center; }
+
+.informationErrorType{ background-color:#D9534F; }
+
+.informationSuccessType{ background-color:#5CB85C; }
+
+.informationInfoType{ background-color:#6184D8; }
+
+
+.informationMessage{ width:calc(100% - 90px); margin-right:10px; }
+
+
+.informationClose{ width:80px; color:#FFFFFF; padding:4px 0 4px 0; border-radius:4px; font-size:0.9em; vertical-align:middle; cursor:pointer; border:none; background-color:transparent; }
+
+.informationInfoType .informationClose:hover{ background-color:#5073C7; }
+
+.informationErrorType .informationClose:hover{ background-color:#C8423E; }
+
+.informationSuccessType .informationClose:hover{ background-color:#4BA74B; }
+
+/****************************************************************************************************/

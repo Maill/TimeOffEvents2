@@ -9,8 +9,7 @@ type JWT = string
 // Login credentials.
 type Login =
     { UserName   : string
-      Password   : string
-      PasswordId : Guid }
+      Password   : string } //PasswordId : Guid
 
 type UserData =
   { UserName : string

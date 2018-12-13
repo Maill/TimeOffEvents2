@@ -15,17 +15,12 @@ type Identity =
 
 /// Login handlers and functions for API handlers request authorisation with JWT.
 module Handlers =
+    open System.Net
 
     let private tryGetValidIdentityFromLogin (login: TimeOff.AuthTypes.Login) : Identity option =
-        if login.Password = login.UserName then
-            match login.UserName with
-            | "manager"   -> Some { UserName = login.UserName; User = Manager }
-            | "employee1" -> Some { UserName = login.UserName; User = Employee 1 }
-            | "employee2" -> Some { UserName = login.UserName; User = Employee 2 }
-            | "employee3" -> Some { UserName = login.UserName; User = Employee 3 }
-            | _ -> None
-        else
-            None
+        match login with
+        | { UserName = "admin"; Password = "Password123" }   -> Some { UserName = login.UserName; User = Manager }
+        | _ -> None
 
     let private createUserData (identity: Identity) =
         {
@@ -44,7 +39,7 @@ module Handlers =
                     | Some identity ->
                         let data = createUserData identity
                         ctx.WriteJsonAsync data
-                    | None -> UNAUTHORIZED "Bearer" "" (sprintf "User '%s' can't be logged in." login.UserName) next ctx
+                    | None -> UNAUTHORIZED "Bearer" "" "Account not found using these credentials" next ctx
             }
 
     let private missingToken = RequestErrors.BAD_REQUEST "Request doesn't contain a JSON Web Token"
@@ -69,3 +64,7 @@ module Handlers =
                 | Some identity -> f identity.User
                 | None -> invalidToken
             | None -> missingToken) next ctx
+
+    (*let checkJwtTokenFromCookies f : HttpHandler =
+        let cookies = CookieContainer()
+            printfn "Cookie : %s" cookies.GetCookies("timeOffAuth")*)
