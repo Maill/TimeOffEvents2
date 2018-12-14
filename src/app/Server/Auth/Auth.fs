@@ -15,7 +15,6 @@ type Identity =
 
 /// Login handlers and functions for API handlers request authorisation with JWT.
 module Handlers =
-    open System.Net
 
     let private tryGetValidIdentityFromLogin (login: TimeOff.AuthTypes.Login) : Identity option =
         match login with
@@ -65,6 +64,17 @@ module Handlers =
                 | None -> invalidToken
             | None -> missingToken) next ctx
 
-    (*let checkJwtTokenFromCookies f : HttpHandler =
-        let cookies = CookieContainer()
-            printfn "Cookie : %s" cookies.GetCookies("timeOffAuth")*)
+    let checkJwtTokenFromCookies f : HttpHandler =
+        fun (next : HttpFunc) (ctx : HttpContext) ->
+        (
+            match ctx.TryGetRequestHeader "Cookie" with
+            | Some result ->
+                let cookies = result.Split("; ")
+                for cookie in cookies do
+                    let currentCookie = cookie.Split("=")
+                    if currentCookie.[0] = "timeOffAuth" then
+                        match isValid currentCookie.[1] with
+                        | Some identity -> f identity.User
+                        | None -> invalidToken
+                invalidToken
+            | None -> missingToken) next ctx

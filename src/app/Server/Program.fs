@@ -58,7 +58,7 @@ module HttpHandlers =
 // ---------------------------------
 
 let webApp (eventStore: IStore<UserId, RequestEvent>) =
-    let handleCommand (user: User) (command: Command) =
+    (*let handleCommand (user: User) (command: Command) =
         let userId = command.UserId
 
         let eventStream = eventStore.GetStream(userId)
@@ -73,13 +73,25 @@ let webApp (eventStore: IStore<UserId, RequestEvent>) =
         | _ -> ()
 
         // Finally, return the result
-        result
-        
+        result*)
+    
     choose [
         route "/" >=> GET >=> htmlView Views.indexView
-        route "/" >=> POST >=> Auth.Handlers.login
-        route "/home" >=> Auth.Handlers.requiresJwtTokenForAPI (fun user -> GET >=> htmlView Views.homeView)
-        subRoute "/api"
+        Auth.Handlers.checkJwtTokenFromCookies (fun user ->
+        choose [
+            route "/home" >=> GET >=> htmlView Views.homeView
+        ])
+        setStatusCode 404 >=> htmlView Views.lostView
+    ]
+    (*Auth.Handlers.checkJwtTokenFromCookies (fun user ->
+        choose [
+            route "/" >=> GET >=> htmlView Views.indexView
+            route "/" >=> POST >=> Auth.Handlers.login
+            route "/home" >=> GET >=> htmlView Views.homeView
+            setStatusCode 404 >=> htmlView Views.lostView
+        ]
+    )*)
+        (*subRoute "/api"
             (choose [
                 subRoute "/timeoff"
                     (Auth.Handlers.requiresJwtTokenForAPI (fun user ->
@@ -88,8 +100,7 @@ let webApp (eventStore: IStore<UserId, RequestEvent>) =
                             POST >=> route "/validate-request" >=> HttpHandlers.validateRequest (handleCommand user)
                         ]
                     ))
-            ])
-        setStatusCode 404 >=> htmlView Views.lostView ]
+            ])*)
 
 // ---------------------------------
 // Error handler
