@@ -4,6 +4,7 @@
     <TargetFramework>netcoreapp2.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="Database.fs" />
     <Compile Include="EventStorage.fs" />
     <Compile Include="InMemory.fs" />
     <Compile Include="Serialization.fs" />

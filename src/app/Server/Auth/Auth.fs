@@ -52,20 +52,52 @@ module Handlers =
         with
         | _ -> None
 
+    let checkJwtToken (jwt : string) : bool =
+        try
+            let token = JsonWebToken.decode jwt
+            true
+        with
+        | _ -> false
+
     /// Checks if the HTTP request has a valid JWT token for API.
     /// On success it will invoke the given `f` function by passing in the valid token.
     let requiresJwtTokenForAPI f : HttpHandler =
         fun (next : HttpFunc) (ctx : HttpContext) ->
-            (match ctx.TryGetRequestHeader "Authorization" with
+        (
+            match ctx.TryGetRequestHeader "Authorization" with
             | Some authHeader ->
                 let jwt = authHeader.Replace("Bearer ", "")
                 match isValid jwt with
                 | Some identity -> f identity.User
                 | None -> invalidToken
-            | None -> missingToken) next ctx
+            | None -> missingToken
+        ) next ctx
 
-    let checkJwtTokenFromCookies f : HttpHandler =
+    let rec test (cookies : string[]) (index : int) =
+        if checkJwtToken ((((cookies.[index]).Split("=")).[1])) then true else false
+        //if cookies.[index] <> null then false
+        (*else
+            let currentCookie = cookies.[index].Split("=")
+            printfn "Current cookie : %s" ((checkJwtToken currentCookie.[1]).ToString())
+            if currentCookie.[0] = "timeOffAuth" then
+                if checkJwtToken currentCookie.[1] then true
+                else test cookies (index + 1)
+            else test cookies (index + 1)*)
+
+    let checkJwtTokenFromCookies : HttpHandler =
         fun (next : HttpFunc) (ctx : HttpContext) ->
+        (
+            match ctx.TryGetRequestHeader "Cookie" with
+            | Some result ->
+                let cookies = result.Split("; ")
+                let a = test cookies 0
+                printfn "Result : %s" (a.ToString())
+                match a with
+                | false -> redirectTo true "/"
+            | None -> redirectTo true "/"
+        ) next ctx
+
+        (*fun (next : HttpFunc) (ctx : HttpContext) ->
         (
             match ctx.TryGetRequestHeader "Cookie" with
             | Some result ->
@@ -77,4 +109,4 @@ module Handlers =
                         | Some identity -> f identity.User
                         | None -> invalidToken
                 invalidToken
-            | None -> missingToken) next ctx
+            | None -> missingToken) next ctx*)

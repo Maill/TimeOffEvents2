@@ -58,7 +58,7 @@ module HttpHandlers =
 // ---------------------------------
 
 let webApp (eventStore: IStore<UserId, RequestEvent>) =
-    (*let handleCommand (user: User) (command: Command) =
+    let handleCommand (user: User) (command: Command) =
         let userId = command.UserId
 
         let eventStream = eventStore.GetStream(userId)
@@ -73,14 +73,18 @@ let webApp (eventStore: IStore<UserId, RequestEvent>) =
         | _ -> ()
 
         // Finally, return the result
-        result*)
+        result
     
     choose [
-        route "/" >=> GET >=> htmlView Views.indexView
-        Auth.Handlers.checkJwtTokenFromCookies (fun user ->
-        choose [
-            route "/home" >=> GET >=> htmlView Views.homeView
-        ])
+        GET >=>
+            choose [
+                route "/" >=> htmlView Views.indexView
+                route "/home" >=> Auth.Handlers.checkJwtTokenFromCookies >=> htmlView Views.homeView
+            ]
+        POST >=>
+            choose [
+                route "/" >=> Auth.Handlers.login
+            ]
         setStatusCode 404 >=> htmlView Views.lostView
     ]
     (*Auth.Handlers.checkJwtTokenFromCookies (fun user ->
