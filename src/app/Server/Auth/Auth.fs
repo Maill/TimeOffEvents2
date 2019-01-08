@@ -19,7 +19,7 @@ module Handlers =
     let private tryGetValidIdentityFromLogin (login: TimeOff.AuthTypes.Login) : Identity option =
         match login with
         | { UserName = "admin"; Password = "Password123" }   -> Some { UserName = login.UserName; User = Manager }
-        | { UserName = "user"; Password = "Password123" }   -> Some { UserName = login.UserName; User = Employee 0 }
+        | { UserName = "user"; Password = "Password123" }   -> Some { UserName = login.UserName; User = Employee 1 }
         | _ -> None
 
     let private createUserData (identity: Identity) =
