@@ -76,27 +76,9 @@ let webApp (eventStore: IStore<UserId, RequestEvent>) =
         result
     
     choose [
-        GET >=>
-            choose [
-                route "/" >=> htmlView Views.indexView
-                route "/home" >=> Auth.Handlers.checkJwtTokenFromCookies >=> htmlView Views.homeView
-            ]
-        POST >=>
-            choose [
-                route "/" >=> Auth.Handlers.login
-            ]
-        setStatusCode 404 >=> htmlView Views.lostView
-    ]
-    (*Auth.Handlers.checkJwtTokenFromCookies (fun user ->
-        choose [
-            route "/" >=> GET >=> htmlView Views.indexView
-            route "/" >=> POST >=> Auth.Handlers.login
-            route "/home" >=> GET >=> htmlView Views.homeView
-            setStatusCode 404 >=> htmlView Views.lostView
-        ]
-    )*)
-        (*subRoute "/api"
+        subRoute "/api"
             (choose [
+                POST >=> route "/users/login" >=> Auth.Handlers.login
                 subRoute "/timeoff"
                     (Auth.Handlers.requiresJwtTokenForAPI (fun user ->
                         choose [
@@ -104,7 +86,9 @@ let webApp (eventStore: IStore<UserId, RequestEvent>) =
                             POST >=> route "/validate-request" >=> HttpHandlers.validateRequest (handleCommand user)
                         ]
                     ))
-            ])*)
+            ])
+        setStatusCode 404 >=> htmlView Views.lostView
+    ]
 
 // ---------------------------------
 // Error handler
