@@ -5,12 +5,14 @@ open System
 // Then our commands
 type Command =
     | RequestTimeOff of TimeOffRequest
+    | RejectCancellation of UserId * Guid
     | CancelRequest of UserId * Guid
     | RefuseRequest of UserId * Guid
     | ValidateRequest of UserId * Guid with
     member this.UserId =
         match this with
         | RequestTimeOff request -> request.UserId
+        | RejectCancellation (userId, _) -> userId
         | CancelRequest (userId, _) -> userId
         | RefuseRequest (userId, _) -> userId
         | ValidateRequest (userId, _) -> userId
@@ -19,6 +21,8 @@ type Command =
 type RequestEvent =
     | RequestCreated of TimeOffRequest
     | RequestRefused of TimeOffRequest
+    | RequestCancellationRejected of TimeOffRequest
+    | RequestPendingCancellation of TimeOffRequest
     | RequestCancelled of TimeOffRequest
     | RequestValidated of TimeOffRequest with
     member this.Request =
@@ -27,6 +31,8 @@ type RequestEvent =
         | RequestRefused request -> request
         | RequestCancelled request -> request
         | RequestValidated request -> request
+        | RequestPendingCancellation request -> request
+        | RequestCancellationRejected request -> request
 
 // We then define the state of the system,
 // and our 2 main functions `decide` and `evolve`
@@ -43,12 +49,16 @@ module Logic =
             match this with
             | NotCreated -> invalidOp "Not created"
             | PendingValidation request
+            | PendingCancellation request
+            | Refused request 
             | Cancelled request
             | Validated request -> request
         member this.IsActive =
             match this with
             | NotCreated -> false
             | PendingValidation _
+            | PendingCancellation _
+            | Refused _
             | Cancelled _
             | Validated _ -> true
 
@@ -57,8 +67,11 @@ module Logic =
     let evolveRequest state event =
         match event with
         | RequestCreated request -> PendingValidation request
+        | RequestRefused request -> Refused request
         | RequestCancelled request -> Cancelled request
         | RequestValidated request -> Validated request
+        | RequestPendingCancellation request -> PendingCancellation request
+        | RequestCancellationRejected request -> Validated request
 
     let evolveUserRequests (userRequests: UserRequestsState) (event: RequestEvent) =
         let requestState = defaultArg (Map.tryFind event.Request.RequestId userRequests) NotCreated
@@ -89,15 +102,6 @@ module Logic =
             Error "The request starts in the past"
         else
             Ok [RequestCreated request]
-
-    let cancelRequest requestState =
-        match requestState with
-        | PendingValidation request ->
-            Ok [RequestCancelled request]
-        | Validated request ->
-            Ok [RequestCancelled request]
-        | _ ->
-            Error "Request cannot be cancelled"
         
     let validateRequest requestState =
         match requestState with
@@ -122,12 +126,33 @@ module Logic =
                     |> Seq.map (fun state -> state.Request)
 
                 createRequest activeUserRequests request
+             
+            | RefuseRequest (_, requestId) ->
+                let requestState = defaultArg (userRequests.TryFind requestId) NotCreated
+                if user <> Manager then
+                    Error "Unauthorized"
+                else
+                    match requestState with
+                    | PendingValidation request -> Ok [RequestRefused request]
+                    | _ ->
+                        Error "Request cannot be refused"
                 
             | CancelRequest (_, requestId) ->
                 let requestState = defaultArg (userRequests.TryFind requestId) NotCreated
                 match requestState with
-                | PendingValidation request -> cancelRequest requestState
-                | Validated request -> cancelRequest requestState
+                | PendingValidation request -> Ok [RequestCancelled request]
+                | Validated request ->
+                    if user <> Manager then
+                        Ok [RequestPendingCancellation request]
+                    else
+                        Ok [RequestCancelled request]
+                | PendingCancellation request ->
+                    if user <> Manager then
+                        Error "Unauthorized"
+                    else
+                        Ok [RequestCancelled request]
+                | _ ->
+                    Error "Request cannot be cancelled"
 
             | ValidateRequest (_, requestId) ->
                 if user <> Manager then
@@ -135,3 +160,16 @@ module Logic =
                 else
                     let requestState = defaultArg (userRequests.TryFind requestId) NotCreated
                     validateRequest requestState
+                    
+            | RejectCancellation (_, requestId) ->
+                if user <> Manager then
+                    Error "You are unauthorized to reject a time off cancellation request"
+                else
+                    let requestState = defaultArg (userRequests.TryFind requestId) NotCreated
+                    match requestState with
+                    | PendingValidation request -> Error "This request is in state 'PendingValidation', the cancellation request cannot be rejected because request must be in state 'PendingCancellation' !"
+                    | PendingCancellation request -> Ok [RequestValidated request]
+                    | Cancelled request -> Error "This request is in state 'Cancelled', the cancellation request cannot be rejected because request must be in state 'PendingCancellation' !"
+                    | Refused request -> Error "This request is in state 'Refused', the cancellation request cannot be rejected because request must be in state 'PendingCancellation' !"
+                    | Validated request -> Error "This request is in state 'Validated', the cancellation request cannot be rejected because request must be in state 'PendingCancellation' !"
+                    | _ -> Error "This request does not exist !"
