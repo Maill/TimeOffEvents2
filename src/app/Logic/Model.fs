@@ -60,8 +60,8 @@ module Logic =
         || request1.End = request2.End
         || request1.End = request2.Start
         || request1.Start = request2.End
-        || request1 |> isContainedIn request2
-        || request2 |> isContainedIn request1
+        || (request1.Start < request2.Start && request1.End >= request2.Start)
+        || (request2.Start < request1.Start && request2.End >= request1.Start)
     
     let overlapsWithAnyRequest (otherRequests: TimeOffRequest seq) request =
         otherRequests
