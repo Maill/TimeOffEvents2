@@ -2,6 +2,11 @@
 
 open System
 
+type DateProvider() =
+    interface IDateProvider with
+        member this.getCurrentDate () =
+            DateTime.Today
+
 // Then our commands
 type Command =
     | RequestTimeOff of TimeOffRequest
@@ -56,10 +61,10 @@ module Logic =
         member this.IsActive =
             match this with
             | NotCreated -> false
-            | PendingValidation _
-            | PendingCancellation _
-            | Refused _
-            | Cancelled _
+            | PendingValidation _ -> true
+            | PendingCancellation _ -> true
+            | Refused _ -> false
+            | Cancelled _ -> false
             | Validated _ -> true
 
     type UserRequestsState = Map<Guid, RequestState>
@@ -95,10 +100,10 @@ module Logic =
         |> Seq.exists (overlapsWith request)
 
     let createRequest activeUserRequests  request =
+        let dateProvider = DateProvider() :> IDateProvider
         if request |> overlapsWithAnyRequest activeUserRequests then
             Error "Overlapping request"
-        // This DateTime.Today must go away!
-        elif request.Start.Date <= DateTime.Today then
+        elif request.Start.Date <= dateProvider.getCurrentDate() then
             Error "The request starts in the past"
         else
             Ok [RequestCreated request]

@@ -23,7 +23,7 @@ module Handlers =
         | { UserName = "admin"; Password = "Password123" }   -> Some { UserName = login.UserName; JoiningDate = new DateTime(2019,1,1); User = Manager }
         | { UserName = "user1"; Password = "Password123" }   -> Some { UserName = login.UserName; JoiningDate = new DateTime(2019,1,1); User = Employee 1 }
         | { UserName = "user2"; Password = "Password123" }   -> Some { UserName = login.UserName; JoiningDate = new DateTime(2018,1,1); User = Employee 2 }
-        | { UserName = "user3"; Password = "Password123" }   -> Some { UserName = login.UserName; JoiningDate = new DateTime(2017,1,1); User = Employee 2 }
+        | { UserName = "user3"; Password = "Password123" }   -> Some { UserName = login.UserName; JoiningDate = new DateTime(2017,1,1); User = Employee 3 }
         | _ -> None
 
     let private createUserData (identity: Identity) =

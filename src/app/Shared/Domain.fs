@@ -5,6 +5,9 @@ open System
 // First, we define our domain
 type UserId = int
 
+type IDateProvider =
+    abstract member getCurrentDate: unit -> DateTime
+
 type User =
     | Employee of UserId
     | Manager
