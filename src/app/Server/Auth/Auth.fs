@@ -1,5 +1,6 @@
 namespace ServerCode.Auth
 
+open System
 open TimeOff
 open Giraffe
 open RequestErrors
@@ -11,6 +12,7 @@ type Identity =
     {
         UserName : string
         User: User
+        JoiningDate: DateTime
     }
 
 /// Login handlers and functions for API handlers request authorisation with JWT.
@@ -18,8 +20,10 @@ module Handlers =
 
     let private tryGetValidIdentityFromLogin (login: TimeOff.AuthTypes.Login) : Identity option =
         match login with
-        | { UserName = "admin"; Password = "Password123" }   -> Some { UserName = login.UserName; User = Manager }
-        | { UserName = "user"; Password = "Password123" }   -> Some { UserName = login.UserName; User = Employee 1 }
+        | { UserName = "admin"; Password = "Password123" }   -> Some { UserName = login.UserName; JoiningDate = new DateTime(2019,1,1); User = Manager }
+        | { UserName = "user1"; Password = "Password123" }   -> Some { UserName = login.UserName; JoiningDate = new DateTime(2019,1,1); User = Employee 1 }
+        | { UserName = "user2"; Password = "Password123" }   -> Some { UserName = login.UserName; JoiningDate = new DateTime(2018,1,1); User = Employee 2 }
+        | { UserName = "user3"; Password = "Password123" }   -> Some { UserName = login.UserName; JoiningDate = new DateTime(2017,1,1); User = Employee 2 }
         | _ -> None
 
     let private createUserData (identity: Identity) =
