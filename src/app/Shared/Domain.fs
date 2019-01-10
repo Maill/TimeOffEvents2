@@ -7,6 +7,7 @@ type UserId = int
 
 type IDateProvider =
     abstract member getCurrentDate: unit -> DateTime
+    abstract member createDate: int -> int -> int -> int -> int -> int -> DateTime
 
 type User =
     | Employee of UserId

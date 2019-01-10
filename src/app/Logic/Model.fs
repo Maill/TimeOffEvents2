@@ -6,6 +6,8 @@ type DateProvider() =
     interface IDateProvider with
         member this.getCurrentDate () =
             DateTime.Today
+        member this.createDate year month day hour minute second =
+            DateTime(year, month, day, hour, minute, second)
 
 // Then our commands
 type Command =
@@ -98,6 +100,67 @@ module Logic =
     let overlapsWithAnyRequest (otherRequests: TimeOffRequest seq) request =
         otherRequests
         |> Seq.exists (overlapsWith request)
+    
+    (****************************************************************************************************)
+    
+    let getDaysSequenceWithoutWeekends (startDate: DateTime) (endDate: DateTime) =
+        Seq.initInfinite float
+        |> Seq.map (fun index -> startDate.AddDays index)
+        |> Seq.where (fun dateTime -> int(dateTime.DayOfWeek) < 6)
+        |> Seq.takeWhile (fun dateTime -> dateTime <= endDate)
+        |> Seq.length
+                        
+    (****************************************************************************************************)
+    
+    let getTakenDaysForProvidedYear (userRequests: TimeOffRequest seq) providedYear =
+        //TODO : IMPLEMENT FUNCTIONNALITY TO IGNORE WEEKENDS FROM TIME OFF REQUESTS
+        let dateProvider = DateProvider() :> IDateProvider
+        userRequests
+        |> Seq.map (fun request ->
+            if request.Start.Date.Year = providedYear then
+                if request.End.Date.Year = providedYear then
+                    let startDate = request.Start.Date
+                    let endDate = request.End.Date
+                    let result = getDaysSequenceWithoutWeekends startDate endDate
+                    
+                    printfn "%d" result
+                    
+                    let valueToReturn: float =
+                        match request.Start.HalfDay with
+                        | AM ->
+                            match request.End.HalfDay with
+                            | AM -> float(result) + 0.5
+                            | PM -> float(result) + 1.0
+                        | PM ->
+                            match request.End.HalfDay with
+                            | AM -> float(result)
+                            | PM -> float(result) + 0.5
+                    valueToReturn             
+                else
+                    let startDate = request.Start.Date
+                    let result = 365 - startDate.DayOfYear
+                    let valueToReturn: float =
+                        match request.Start.HalfDay with
+                        | AM -> float(result) + 1.0
+                        | PM -> float(result) + 0.5
+                    valueToReturn
+            else
+                let currentDate = dateProvider.getCurrentDate()
+                let startDate = dateProvider.createDate currentDate.Year 1 1 0 0 0
+                let endDate = dateProvider.createDate currentDate.Year 12 31 0 0 0
+                let result = getDaysSequenceWithoutWeekends startDate endDate
+                float(result)
+            )
+        |> Seq.sum
+    
+    (****************************************************************************************************)
+    
+    let getCurrentYearEarnedBalance: float =
+        let dateProvider = DateProvider() :> IDateProvider
+        let currentDate = dateProvider.getCurrentDate()
+        float(currentDate.Month - 1) * 2.5
+    
+    (****************************************************************************************************)
 
     let createRequest activeUserRequests  request =
         let dateProvider = DateProvider() :> IDateProvider
@@ -133,13 +196,61 @@ module Logic =
                     |> Seq.map (fun state -> state.Request)
  
                 let currentDate = dateProvider.getCurrentDate()
-                let earnedDays = float(currentDate.Month) * 2.5
+                let earnedDays = (float(currentDate.Month) * 2.5) - 2.5
                 
-                                  
-                printfn "%s" (userRequests.ToString())
-                printfn "%s" (earnedDays.ToString())
-                printfn "%s" ((Seq.length activeUserRequests).ToString())
-                createRequest activeUserRequests request
+                
+                let getAmountOfDaysAlreadyTaken =
+                    activeUserRequests
+                    |> Seq.map (fun request ->
+                        if request.Start.Date.Year = currentDate.Year then
+                            if request.End.Date.Year = currentDate.Year then
+                                let startDate = request.Start.Date
+                                let endDate = request.End.Date
+                                let result = endDate.Subtract(startDate);
+                                let a: float =
+                                    match request.Start.HalfDay with
+                                    | AM ->
+                                        match request.End.HalfDay with
+                                        | AM -> float(result.Days) + 0.5
+                                        | PM -> float(result.Days) + 1.0
+                                    | PM ->
+                                        match request.End.HalfDay with
+                                        | AM -> float(result.Days)
+                                        | PM -> float(result.Days) + 0.5
+                                a
+                                    
+                                
+                            else
+                                let startDay =
+                                    match request.Start.HalfDay with
+                                    | AM -> (request.Start.Date.DayOfYear * 2) - 1
+                                    | PM -> (request.Start.Date.DayOfYear * 2)
+                                float(730 - startDay)
+                        else
+                            730.0
+                        )
+                    |> Seq.sum
+                
+                let currentRequestDays =
+                    let a = request.End.Date.Subtract(request.Start.Date).Days
+                    match request.Start.HalfDay with
+                    | AM ->
+                        match request.End.HalfDay with
+                        | AM -> float(a) + 0.5
+                        | PM -> float(a) + 1.0
+                    | PM ->
+                        match request.End.HalfDay with
+                        | AM -> float(a)
+                        | PM -> float(a) + 0.5 
+                
+                printfn "%f" earnedDays
+                printfn "%f" getAmountOfDaysAlreadyTaken
+                printfn "%f" currentRequestDays
+                
+                if earnedDays - getAmountOfDaysAlreadyTaken >= currentRequestDays then
+                    createRequest activeUserRequests request
+                else
+                    Error "Not enought balance of days off for this request"
              
             | RefuseRequest (_, requestId) ->
                 let requestState = defaultArg (userRequests.TryFind requestId) NotCreated
