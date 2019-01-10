@@ -123,13 +123,22 @@ module Logic =
         | _ ->
             match command with
             | RequestTimeOff request ->
+                let dateProvider = DateProvider() :> IDateProvider
                 let activeUserRequests =
                     userRequests
                     |> Map.toSeq
                     |> Seq.map (fun (_, state) -> state)
+                    |> Seq.where (fun state -> state.Request.Start.Date.Year = dateProvider.getCurrentDate().Year || state.Request.End.Date.Year = dateProvider.getCurrentDate().Year)
                     |> Seq.where (fun state -> state.IsActive)
                     |> Seq.map (fun state -> state.Request)
-
+ 
+                let currentDate = dateProvider.getCurrentDate()
+                let earnedDays = float(currentDate.Month) * 2.5
+                
+                                  
+                printfn "%s" (userRequests.ToString())
+                printfn "%s" (earnedDays.ToString())
+                printfn "%s" ((Seq.length activeUserRequests).ToString())
                 createRequest activeUserRequests request
              
             | RefuseRequest (_, requestId) ->
@@ -144,27 +153,35 @@ module Logic =
                 
             | CancelRequest (_, requestId) ->
                 let requestState = defaultArg (userRequests.TryFind requestId) NotCreated
-                match requestState with
-                | PendingValidation request -> Ok [RequestCancelled request]
-                | Validated request ->
-                    if user <> Manager then
-                        Ok [RequestPendingCancellation request]
-                    else
-                        Ok [RequestCancelled request]
-                | PendingCancellation request ->
-                    if user <> Manager then
-                        Error "Unauthorized"
-                    else
-                        Ok [RequestCancelled request]
-                | _ ->
-                    Error "Request cannot be cancelled"
+                let dateProvider = DateProvider() :> IDateProvider
+                if requestState.Request.Start.Date <= dateProvider.getCurrentDate() then
+                    Error "Request date is in the past"
+                else
+                    match requestState with
+                    | PendingValidation request -> Ok [RequestCancelled request]
+                    | Validated request ->
+                        if user <> Manager then
+                            Ok [RequestPendingCancellation request]
+                        else
+                            Ok [RequestCancelled request]
+                    | PendingCancellation request ->
+                        if user <> Manager then
+                            Error "Unauthorized"
+                        else
+                            Ok [RequestCancelled request]
+                    | _ ->
+                        Error "Request cannot be cancelled"
 
             | ValidateRequest (_, requestId) ->
                 if user <> Manager then
                     Error "Unauthorized"
                 else
                     let requestState = defaultArg (userRequests.TryFind requestId) NotCreated
-                    validateRequest requestState
+                    let dateProvider = DateProvider() :> IDateProvider
+                    if requestState.Request.Start.Date <= dateProvider.getCurrentDate() then
+                        Error "Request date is in the past"
+                    else
+                        validateRequest requestState
                     
             | RejectCancellation (_, requestId) ->
                 if user <> Manager then
