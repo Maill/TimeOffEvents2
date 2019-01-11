@@ -13,6 +13,17 @@ type User =
     | Employee of UserId
     | Manager
 
+[<CLIMutable>]
+type EmployeeBalance = {
+    UserId: UserId
+    AccumulatedDays: float
+    AlreadyTakenDays: float
+    PlannedDays: float
+    CarriedOverDays: float
+    RemainingDays: float
+    
+}
+
 type HalfDay = | AM | PM
 
 [<CLIMutable>]
