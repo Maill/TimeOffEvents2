@@ -27,7 +27,7 @@ module HttpHandlers =
         UserId: UserId
         RequestId: Guid
     }
-
+    
     let requestTimeOff (handleCommand: Command -> Result<RequestEvent list, string>) =
         fun (next: HttpFunc) (ctx: HttpContext) ->
             task {
@@ -92,12 +92,60 @@ module HttpHandlers =
                 | Error message ->
                     return! (BAD_REQUEST message) next ctx
             }
-        
+    
+    let getEmployeeBalance (handleGetBalanceRequest: BalanceRequests -> Result<BalanceEvents list, string>) =
+        fun (next: HttpFunc) (ctx: HttpContext) ->
+            task {
+                let userAndRequestId = ctx.BindQueryString<UserAndRequestId>()
+                let command = RetrieveEmployeeBalance (userAndRequestId.UserId)
+                let result = handleGetBalanceRequest command
+                match result with
+                | Ok [EmployeeBalanceRetrieved employeeBalance] -> return! json employeeBalance next ctx
+                | Ok _ -> return! Successful.NO_CONTENT next ctx
+                | Error message ->
+                    return! (BAD_REQUEST message) next ctx
+            }
+    
+    let getEmployeeHistory (handleGetHistoryRequest: HistoryRequests -> Result<HistoryEvents list, string>) =
+        fun (next: HttpFunc) (ctx: HttpContext) ->
+            task {
+                let userIdAndYear = ctx.BindQueryString<UserIdAndYear>()
+                let command = RetrieveEmployeeHistory (userIdAndYear)
+                let result = handleGetHistoryRequest command
+                match result with
+                | Ok [EmployeeHistoryRetrieved employeeHistory] -> return! json employeeHistory next ctx
+                | Ok _ -> return! Successful.NO_CONTENT next ctx
+                | Error message ->
+                    return! (BAD_REQUEST message) next ctx
+            }
+    
 // ---------------------------------
 // Web app
 // ---------------------------------
 
 let webApp (eventStore: IStore<UserId, RequestEvent>) =
+    let handleGetHistoryRequest (user: User) (command: HistoryRequests) =
+        let userIdAndYear = command.UserId
+        let userId = userIdAndYear.UserId
+        let requestYear = userIdAndYear.RequestYear
+        
+        let eventStream = eventStore.GetStream(userId)
+        let state = eventStream.ReadAll() |> Seq.fold Logic.evolveUserRequests Map.empty
+        
+        let result = Logic.getEmployeeHistoryForProvidedYear state command requestYear
+        
+        result
+        
+    let handleGetBalanceRequest (user: User) (command: BalanceRequests) =
+        let userId = command.UserId
+        
+        let eventStream = eventStore.GetStream(userId)
+        let state = eventStream.ReadAll() |> Seq.fold Logic.evolveUserRequests Map.empty
+        
+        let result = Logic.getEmployeeBalance state command
+        
+        result
+        
     let handleCommand (user: User) (command: Command) =
         let userId = command.UserId
 
@@ -122,6 +170,8 @@ let webApp (eventStore: IStore<UserId, RequestEvent>) =
                 subRoute "/timeoff"
                     (Auth.Handlers.requiresJwtTokenForAPI (fun user ->
                         choose [
+                            POST >=> route "/get-employee-balance" >=> HttpHandlers.getEmployeeBalance (handleGetBalanceRequest user)
+                            POST >=> route "/get-employee-history" >=> HttpHandlers.getEmployeeHistory (handleGetHistoryRequest user)
                             POST >=> route "/request" >=> HttpHandlers.requestTimeOff (handleCommand user)
                             POST >=> route "/cancel-request" >=> HttpHandlers.cancelRequest (handleCommand user)
                             POST >=> route "/refuse-request" >=> HttpHandlers.refuseRequest (handleCommand user)

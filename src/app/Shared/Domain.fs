@@ -12,6 +12,12 @@ type IDateProvider =
 type User =
     | Employee of UserId
     | Manager
+    
+[<CLIMutable>]
+type UserIdAndYear = {
+    UserId: UserId
+    RequestYear: int
+}
 
 [<CLIMutable>]
 type EmployeeBalance = {
@@ -21,7 +27,6 @@ type EmployeeBalance = {
     PlannedDays: float
     CarriedOverDays: float
     RemainingDays: float
-    
 }
 
 type HalfDay = | AM | PM
@@ -30,6 +35,20 @@ type HalfDay = | AM | PM
 type Boundary = {
     Date: DateTime
     HalfDay: HalfDay
+}
+
+[<CLIMutable>]
+type TimeOff = {
+    RequestId: Guid
+    Start: Boundary
+    End: Boundary
+    Days: float
+}
+
+[<CLIMutable>]
+type TimeOffRequestHistory = {
+    UserId: UserId
+    TimeOffList: seq<TimeOff>
 }
 
 [<CLIMutable>]

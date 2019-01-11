@@ -24,6 +24,30 @@ type Command =
         | RefuseRequest (userId, _) -> userId
         | ValidateRequest (userId, _) -> userId
 
+type BalanceRequests =
+    | RetrieveEmployeeBalance of UserId
+    member this.UserId =
+        match this with
+        | RetrieveEmployeeBalance userId -> userId
+        
+type BalanceEvents =
+    | EmployeeBalanceRetrieved of EmployeeBalance
+    member this.Request =
+        match this with
+        | EmployeeBalanceRetrieved request -> request
+
+type HistoryRequests =
+    | RetrieveEmployeeHistory of UserIdAndYear
+    member this.UserId =
+        match this with
+        | RetrieveEmployeeHistory (userIdAndYear) -> userIdAndYear
+    
+type HistoryEvents =
+    | EmployeeHistoryRetrieved of TimeOffRequestHistory
+    member this.Request =
+        match this with
+        | EmployeeHistoryRetrieved request -> request
+
 // And our events
 type RequestEvent =
     | RequestCreated of TimeOffRequest
@@ -124,6 +148,82 @@ module Logic =
     (****************************************************************************************************)
     (****************************************************************************************************)
     
+    let getEmployeeHistoryForProvidedYear (userRequests: UserRequestsState) (command: HistoryRequests) providedYear =
+        let dateProvider = DateProvider() :> IDateProvider
+        let userId = command.UserId.UserId
+ 
+        let test =
+            userRequests
+            |> Map.toSeq
+            |> Seq.map (fun (_, request) -> request)
+            |> Seq.map (fun request -> request.Request)
+            |> Seq.where (fun request -> request.Start.Date.Year = providedYear || request.End.Date.Year = providedYear)        
+            |> Seq.map (fun request ->
+                let requestId = request.RequestId
+                    
+                match request.Start.Date.Year with
+                | providedYear ->
+                    match request.End.Date.Year with
+                    | providedYear ->
+                        
+                        let startDate = request.Start
+                        let endDate = request.End
+                            
+                        let days = getDaysRangeSequenceWithoutWeekends startDate.Date endDate.Date
+                            
+                        let realDays =
+                            match request.Start.HalfDay with
+                            | AM ->
+                                match request.End.HalfDay with
+                                | AM -> float(days) - 0.5
+                                | PM -> float(days)
+                            | PM ->
+                                match request.End.HalfDay with
+                                | AM -> float(days) - 1.0
+                                | PM -> float(days) - 0.5
+                            
+                        let currentRequest = {
+                            RequestId= requestId
+                            Start= startDate
+                            End= endDate
+                            Days= realDays
+                        }
+                        currentRequest
+                        
+                    | _ ->
+                        
+                        let startDate = request.Start
+                        let endDate = {
+                            Date= dateProvider.createDate providedYear 12 31 0 0 0
+                            HalfDay= PM
+                        }
+                            
+                        let days = getDaysRangeSequenceWithoutWeekends startDate.Date endDate.Date
+                        
+                        let realDays =
+                            match request.Start.HalfDay with
+                            | AM -> float(days)
+                            | PM -> float(days) - 0.5
+                        
+                        let currentRequest = {
+                            RequestId= requestId
+                            Start= startDate
+                            End= endDate
+                            Days= realDays
+                        }
+                        currentRequest
+                    )
+            |> Seq.map (fun request -> request)
+        
+        let history = {
+            UserId= userId
+            TimeOffList= test
+        }
+        Ok [EmployeeHistoryRetrieved history]
+    
+    (****************************************************************************************************)
+    (****************************************************************************************************)
+    
     let getTakenDaysForProvidedYear (userRequests: TimeOffRequest seq) providedYear =
         let dateProvider = DateProvider() :> IDateProvider
         userRequests
@@ -158,6 +258,119 @@ module Logic =
                 let startDate = dateProvider.createDate providedYear 1 1 0 0 0
                 let endDate = request.End.Date
                 let result = getDaysRangeSequenceWithoutWeekends startDate endDate
+                let valueToReturn: float =
+                    match request.End.HalfDay with
+                    | AM -> float(result) - 0.5
+                    | PM -> float(result)
+                valueToReturn
+            else
+                0.0
+            )
+        |> Seq.sum
+    
+    (****************************************************************************************************)
+    (****************************************************************************************************)
+    
+    let getTakenDaysThatAreInThePast (userRequests: TimeOffRequest seq) =
+        let dateProvider = DateProvider() :> IDateProvider
+        let currentDate = dateProvider.getCurrentDate()
+        userRequests
+        |> Seq.map (fun request ->
+            printfn "%s | %s" (request.Start.Date.ToString()) (request.End.Date.ToString())
+            if request.Start.Date.Year = currentDate.Year then
+                if request.End.Date.Year = currentDate.Year then
+                    let startDate = request.Start.Date
+                    let endDate = request.End.Date
+                    let result = getDaysRangeSequenceWithoutWeekends startDate endDate
+                    
+                    if startDate.DayOfYear <= currentDate.DayOfYear then
+                        let valueToReturn: float =
+                            match request.Start.HalfDay with
+                            | AM ->
+                                match request.End.HalfDay with
+                                | AM -> float(result) - 0.5
+                                | PM -> float(result)
+                            | PM ->
+                                match request.End.HalfDay with
+                                | AM -> float(result) - 1.0
+                                | PM -> float(result) - 0.5
+                        valueToReturn
+                    else
+                        0.0
+                else
+                    let startDate = request.Start.Date
+                    let endDate = dateProvider.createDate currentDate.Year 12 31 0 0 0
+                    let result = getDaysRangeSequenceWithoutWeekends startDate endDate
+                    
+                    if startDate.DayOfYear <= currentDate.DayOfYear then
+                        let valueToReturn: float =
+                            match request.Start.HalfDay with
+                            | AM -> float(result)
+                            | PM -> float(result) - 0.5
+                        valueToReturn
+                    else
+                        0.0
+            elif request.End.Date.Year = currentDate.Year then
+                let startDate = dateProvider.createDate currentDate.Year 1 1 0 0 0
+                let endDate = request.End.Date
+                let result = getDaysRangeSequenceWithoutWeekends startDate endDate
+                
+                let valueToReturn: float =
+                    match request.End.HalfDay with
+                    | AM -> float(result) - 0.5
+                    | PM -> float(result)
+                valueToReturn
+            else
+                0.0
+            )
+        |> Seq.sum
+    
+    (****************************************************************************************************)
+    (****************************************************************************************************)
+    
+    let getTakenDaysThatAreComming (userRequests: TimeOffRequest seq) =
+        let dateProvider = DateProvider() :> IDateProvider
+        let currentDate = dateProvider.getCurrentDate()
+        userRequests
+        |> Seq.map (fun request ->
+            if request.Start.Date.Year = currentDate.Year then
+                if request.End.Date.Year = currentDate.Year then
+                    let startDate = request.Start.Date
+                    let endDate = request.End.Date
+                    let result = getDaysRangeSequenceWithoutWeekends startDate endDate
+                    
+                    if startDate.DayOfYear > currentDate.DayOfYear then
+                        let valueToReturn: float =
+                            match request.Start.HalfDay with
+                            | AM ->
+                                match request.End.HalfDay with
+                                | AM -> float(result) - 0.5
+                                | PM -> float(result)
+                            | PM ->
+                                match request.End.HalfDay with
+                                | AM -> float(result) - 1.0
+                                | PM -> float(result) - 0.5
+                        valueToReturn
+                    else
+                        0.0
+                else
+                    let startDate = request.Start.Date
+                    let endDate = dateProvider.createDate currentDate.Year 12 31 0 0 0
+                    let result = getDaysRangeSequenceWithoutWeekends startDate endDate
+                    
+                    if startDate.DayOfYear > currentDate.DayOfYear then
+                        let valueToReturn: float =
+                            match request.Start.HalfDay with
+                            | AM -> float(result)
+                            | PM -> float(result) - 0.5
+                        valueToReturn
+                    else
+                        0.0
+            elif request.End.Date.Year = currentDate.Year then
+                let startDate = dateProvider.createDate currentDate.Year 1 1 0 0 0
+                let endDate = request.End.Date
+                let result = getDaysRangeSequenceWithoutWeekends startDate endDate
+                
                 let valueToReturn: float =
                     match request.End.HalfDay with
                     | AM -> float(result) - 0.5
@@ -213,27 +426,45 @@ module Logic =
     (****************************************************************************************************)
     (****************************************************************************************************)
     
+    let getEmployeeBalance (userRequests: UserRequestsState) (command: BalanceRequests) =
+        let userId = command.UserId
+        
+        let dateProvider = DateProvider() :> IDateProvider
+        let currentDate = dateProvider.getCurrentDate()
+
+        let activeUserRequests =
+            userRequests
+            |> Map.toSeq
+            |> Seq.map (fun (_, state) -> state)
+            |> Seq.where (fun state -> state.IsActive)
+            |> Seq.map (fun state -> state.Request)
+            
+        let accumulatedDays: float = getEmployeeAccumulatedDays
+        let carriedOverDays: float = 25.0 - getTakenDaysForProvidedYear activeUserRequests (currentDate.Year - 1)
+        let alreadyTakenDays: float = getTakenDaysThatAreInThePast activeUserRequests
+        let plannedDays: float = getTakenDaysThatAreComming activeUserRequests
+        let remainingDays: float = (carriedOverDays + accumulatedDays) - alreadyTakenDays - plannedDays
+        
+        let currentEmployeeBalance = {
+            UserId= userId
+            AccumulatedDays= getEmployeeAccumulatedDays
+            AlreadyTakenDays= alreadyTakenDays
+            PlannedDays= plannedDays
+            CarriedOverDays= carriedOverDays
+            RemainingDays= remainingDays
+        }
+        Ok [EmployeeBalanceRetrieved currentEmployeeBalance]
+    
+    (****************************************************************************************************)
+    (****************************************************************************************************)
+    
     let decide (userRequests: UserRequestsState) (user: User) (command: Command) =
         let relatedUserId = command.UserId
         match user with
         | Employee userId when userId <> relatedUserId ->
             Error "Unauthorized"
         | _ ->
-            match command with
-            (*| GetEmployeeBalance userId ->
-                let activeUserRequests =
-                    userRequests
-                    |> Map.toSeq
-                    |> Seq.map (fun (_, state) -> state)
-                    |> Seq.where (fun state -> state.IsActive)
-                    |> Seq.map (fun state -> state.Request)
-                let currentBalance: float = getEmployeeCurrentBalance activeUserRequests
-                let currentEmployeeBalance = {
-                    UserId= userId
-                    RemainingBalance= currentBalance
-                }
-                Ok [currentEmployeeBalance]*)
-            
+            match command with            
             | RequestTimeOff request ->
                 let dateProvider = DateProvider() :> IDateProvider
                 let activeUserRequests =
